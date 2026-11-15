@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Observability - Predictive Maintenance Hub</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Observability</h1>
+    <nav><a href="/">Dashboard</a><a href="/observability" aria-current="page">Observability</a></nav>
+  </header>
+  <main>
+    <div id="obs-message" class="message" hidden role="status"></div>
+    <section aria-labelledby="h-journey">
+      <h2 id="h-journey">Key user journey: record a reading <span class="dim">(POST /api/readings)</span></h2>
+      <div id="journey" class="tiles"></div>
+    </section>
+    <div class="grid">
+      <section aria-labelledby="h-alerts"><h2 id="h-alerts">Alerts</h2><ul id="alerts" class="plain"></ul></section>
+      <section aria-labelledby="h-incidents"><h2 id="h-incidents">Incidents (on-call agent)</h2><ul id="incidents" class="plain"></ul></section>
+    </div>
+    <section aria-labelledby="h-traces">
+      <h2 id="h-traces">Recent traces <span class="dim">(click a row)</span></h2>
+      <table><thead><tr><th>Time (UTC)</th><th>Route</th><th>Status</th><th>Duration</th><th>Trace ID</th><th>Error</th></tr></thead><tbody id="traces-body"></tbody></table>
+    </section>
+    <section aria-labelledby="trace-title">
+      <h2 id="trace-title">Select a trace</h2>
+      <h3>Spans</h3><div id="spans"></div>
+      <h3>Structured logs with the same trace ID</h3><div id="logs"></div>
+    </section>
+  </main>
+  <script type="module" src="/static/src/observability.js"></script>
+</body>
+</html>

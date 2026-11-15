@@ -1,0 +1,872 @@
+openapi: 3.1.0
+info:
+  title: Predictive Maintenance Hub API
+  version: 1.0.0
+  description: |
+    Contract for the Predictive Maintenance Hub. It is the source of truth shared by the
+    frontend, the backend, the on-call agent and the contract tests
+    (`backend/tests/integration/test_openapi_contract.py`), which fail when code and spec drift.
+servers:
+  - url: http://localhost:8000
+    description: Local (docker compose or `make dev`)
+tags:
+  - name: operations
+  - name: machines
+  - name: readings
+  - name: work-orders
+  - name: telemetry
+  - name: alerts
+  - name: admin
+paths:
+  /health:
+    get:
+      tags: [operations]
+      operationId: health
+      summary: Liveness probe
+      responses:
+        "200":
+          description: Process is up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+  /ready:
+    get:
+      tags: [operations]
+      operationId: ready
+      summary: Readiness probe (checks the database)
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+        "503":
+          description: Database unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+  /metrics:
+    get:
+      tags: [operations]
+      operationId: metrics
+      summary: Prometheus text metrics derived from stored spans
+      responses:
+        "200":
+          description: Prometheus exposition format
+          content:
+            text/plain:
+              schema: { type: string }
+  /api/dashboard/summary:
+    get:
+      tags: [machines]
+      operationId: dashboardSummary
+      summary: Fleet overview for the dashboard
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardSummary" }
+  /api/machines:
+    get:
+      tags: [machines]
+      operationId: listMachines
+      summary: List machines with their latest risk
+      responses:
+        "200":
+          description: Machines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Machine" }
+    post:
+      tags: [machines]
+      operationId: createMachine
+      summary: Register a machine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Machine" }
+        "409":
+          description: Code already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/machines/{machineId}:
+    get:
+      tags: [machines]
+      operationId: getMachine
+      summary: Get one machine
+      parameters:
+        - { $ref: "#/components/parameters/MachineId" }
+      responses:
+        "200":
+          description: Machine
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Machine" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/machines/{machineId}/readings:
+    get:
+      tags: [readings]
+      operationId: listReadings
+      summary: Latest readings of a machine (newest first)
+      parameters:
+        - { $ref: "#/components/parameters/MachineId" }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+      responses:
+        "200":
+          description: Readings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Reading" }
+        "404":
+          description: Machine not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/readings:
+    post:
+      tags: [readings]
+      operationId: createReading
+      summary: "Key user journey: record a sensor reading, score it, open a work order if risky"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReadingCreate" }
+      responses:
+        "201":
+          description: Reading stored and scored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadingResult" }
+        "404":
+          description: Unknown machine code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "500":
+          description: Unexpected failure (the signal the alert is based on)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/work-orders:
+    get:
+      tags: [work-orders]
+      operationId: listWorkOrders
+      summary: List work orders
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/WorkOrderStatus" }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Work orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/WorkOrder" }
+        "422":
+          description: Invalid filter
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/work-orders/{workOrderId}:
+    patch:
+      tags: [work-orders]
+      operationId: updateWorkOrder
+      summary: Change status and/or assignee
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkOrderPatch" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkOrder" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/telemetry/summary:
+    get:
+      tags: [telemetry]
+      operationId: telemetrySummary
+      summary: Per-journey request count, error ratio and latency percentiles
+      parameters:
+        - name: window
+          in: query
+          description: Window in seconds (10-3600)
+          schema: { type: integer, default: 300 }
+        - name: after
+          in: query
+          description: Ignore spans started before this unix timestamp (used by the alerter after a resolution)
+          schema: { type: number }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TelemetrySummary" }
+        "422":
+          description: Invalid parameter
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/telemetry/traces:
+    get:
+      tags: [telemetry]
+      operationId: listTraces
+      summary: Recent traces (one row per request)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ok, error] }
+        - name: journey
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Traces
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/TraceListItem" }
+  /api/telemetry/traces/{traceId}:
+    get:
+      tags: [telemetry]
+      operationId: getTrace
+      summary: All spans and structured logs that share one trace ID
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trace
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TraceDetail" }
+        "404":
+          description: Unknown trace
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/alerts:
+    get:
+      tags: [alerts]
+      operationId: listAlerts
+      summary: List alerts
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [firing, resolved] }
+        - name: rule
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Alert" }
+    post:
+      tags: [alerts]
+      operationId: createAlert
+      summary: Fire an alert (alerter only)
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertCreate" }
+      responses:
+        "201":
+          description: Alert firing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Alert" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/alerts/{alertId}:
+    patch:
+      tags: [alerts]
+      operationId: resolveAlert
+      summary: Resolve an alert
+      security: [{ adminToken: [] }]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [resolved] }
+      responses:
+        "200":
+          description: Alert (resolved)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Alert" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/incidents:
+    get:
+      tags: [alerts]
+      operationId: listIncidents
+      summary: Incident reports written by the on-call agent
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Incident" }
+    post:
+      tags: [alerts]
+      operationId: createIncident
+      summary: Record an incident report (on-call agent only)
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IncidentCreate" }
+      responses:
+        "201":
+          description: Incident recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Incident" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /admin/config:
+    get:
+      tags: [admin]
+      operationId: getConfig
+      summary: Runtime configuration, verification flags and change history
+      security: [{ adminToken: [] }]
+      responses:
+        "200":
+          description: Config state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfigState" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /admin/config/{key}:
+    put:
+      tags: [admin]
+      operationId: setConfig
+      summary: Change a config value (recorded in history, unverified until verified)
+      security: [{ adminToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ConfigKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfigSet" }
+      responses:
+        "200":
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfigChanged" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: skip_validation not allowed in this environment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Unknown key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Invalid value
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /admin/config/{key}/rollback:
+    post:
+      tags: [admin]
+      operationId: rollbackConfig
+      summary: Restore the latest verified-good value (the on-call agent's only write action)
+      security: [{ adminToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ConfigKey" }
+      responses:
+        "200":
+          description: Rolled back
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, from, to]
+                properties:
+                  key: { type: string }
+                  from: { type: string }
+                  to: { type: string }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Unknown key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: No known-good value to roll back to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /admin/config/{key}/verify:
+    post:
+      tags: [admin]
+      operationId: verifyConfig
+      summary: Mark the current value as verified good (used by smoke tests and the agent)
+      security: [{ adminToken: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/ConfigKey" }
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, value, verified]
+                properties:
+                  key: { type: string }
+                  value: { type: string }
+                  verified: { type: boolean }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Unknown key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Current value is invalid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+  parameters:
+    MachineId:
+      name: machineId
+      in: path
+      required: true
+      schema: { type: integer }
+    ConfigKey:
+      name: key
+      in: path
+      required: true
+      schema: { type: string, enum: [risk_model, auto_work_orders] }
+  schemas:
+    Status:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
+        field: { type: string }
+        trace_id: { type: string }
+    RiskLevel:
+      type: string
+      enum: [low, medium, high, critical]
+    WorkOrderStatus:
+      type: string
+      enum: [open, in_progress, done]
+    MachineCreate:
+      type: object
+      required: [code, name, machine_type]
+      properties:
+        code: { type: string, pattern: "^[A-Z0-9][A-Z0-9-]{2,31}$" }
+        name: { type: string, maxLength: 100 }
+        machine_type: { type: string, enum: [pump, motor, compressor, fan, conveyor, other] }
+        location: { type: string, maxLength: 100 }
+    Machine:
+      type: object
+      required: [id, code, name, machine_type, location, created_at, latest_risk_level, latest_risk_score, latest_reading_at]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        machine_type: { type: string }
+        location: { type: string }
+        created_at: { type: string }
+        latest_risk_level: { type: [string, "null"], enum: [low, medium, high, critical, null] }
+        latest_risk_score: { type: [number, "null"] }
+        latest_reading_at: { type: [string, "null"] }
+    ReadingCreate:
+      type: object
+      required: [machine_code, temperature_c, vibration_mm_s, pressure_bar]
+      properties:
+        machine_code: { type: string }
+        temperature_c: { type: number, minimum: -50, maximum: 500 }
+        vibration_mm_s: { type: number, minimum: 0, maximum: 200 }
+        pressure_bar: { type: number, minimum: 0, maximum: 400 }
+        recorded_at: { type: string, format: date-time }
+    Reading:
+      type: object
+      required: [id, machine_id, recorded_at, temperature_c, vibration_mm_s, pressure_bar, risk_score, risk_level, model_version, trace_id]
+      properties:
+        id: { type: integer }
+        machine_id: { type: integer }
+        recorded_at: { type: string }
+        temperature_c: { type: number }
+        vibration_mm_s: { type: number }
+        pressure_bar: { type: number }
+        risk_score: { type: number, minimum: 0, maximum: 100 }
+        risk_level: { $ref: "#/components/schemas/RiskLevel" }
+        model_version: { type: string }
+        trace_id: { type: [string, "null"] }
+    ReadingResult:
+      type: object
+      required: [reading, work_order]
+      properties:
+        reading: { $ref: "#/components/schemas/Reading" }
+        work_order:
+          oneOf:
+            - { $ref: "#/components/schemas/WorkOrder" }
+            - { type: "null" }
+    WorkOrder:
+      type: object
+      required: [id, machine_id, machine_code, machine_name, reading_id, title, priority, status, assigned_to, created_at, updated_at, trace_id]
+      properties:
+        id: { type: integer }
+        machine_id: { type: integer }
+        machine_code: { type: string }
+        machine_name: { type: string }
+        reading_id: { type: [integer, "null"] }
+        title: { type: string }
+        priority: { type: string, enum: [P1, P2] }
+        status: { $ref: "#/components/schemas/WorkOrderStatus" }
+        assigned_to: { type: [string, "null"] }
+        created_at: { type: string }
+        updated_at: { type: string }
+        trace_id: { type: [string, "null"] }
+    WorkOrderPatch:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        status: { $ref: "#/components/schemas/WorkOrderStatus" }
+        assigned_to: { type: [string, "null"], maxLength: 100 }
+    DashboardSummary:
+      type: object
+      required: [machines_total, by_risk_level, open_work_orders, readings_24h, risk_model]
+      properties:
+        machines_total: { type: integer }
+        by_risk_level:
+          type: object
+          required: [low, medium, high, critical, unknown]
+          properties:
+            low: { type: integer }
+            medium: { type: integer }
+            high: { type: integer }
+            critical: { type: integer }
+            unknown: { type: integer }
+        open_work_orders: { type: integer }
+        readings_24h: { type: integer }
+        risk_model: { type: string }
+    JourneyStats:
+      type: object
+      required: [requests, errors, error_ratio, p50_ms, p95_ms]
+      properties:
+        requests: { type: integer }
+        errors: { type: integer }
+        error_ratio: { type: number }
+        p50_ms: { type: number }
+        p95_ms: { type: number }
+    TelemetrySummary:
+      type: object
+      required: [window_seconds, generated_at, total_requests, journeys]
+      properties:
+        window_seconds: { type: integer }
+        generated_at: { type: number }
+        total_requests: { type: integer }
+        journeys:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/JourneyStats" }
+    TraceListItem:
+      type: object
+      required: [trace_id, started_at, duration_ms, status, route, status_code, journey, error_message]
+      properties:
+        trace_id: { type: string }
+        started_at: { type: number }
+        duration_ms: { type: number }
+        status: { type: string, enum: [ok, error] }
+        route: { type: [string, "null"] }
+        status_code: { type: [integer, "null"] }
+        journey: { type: [string, "null"] }
+        error_message: { type: [string, "null"] }
+    Span:
+      type: object
+      required: [span_id, parent_span_id, name, started_at, duration_ms, status, error_message, attributes]
+      properties:
+        span_id: { type: string }
+        parent_span_id: { type: [string, "null"] }
+        name: { type: string }
+        started_at: { type: number }
+        duration_ms: { type: number }
+        status: { type: string, enum: [ok, error] }
+        error_message: { type: [string, "null"] }
+        attributes: { type: object }
+    LogRecord:
+      type: object
+      required: [ts, level, message, span_id, fields]
+      properties:
+        ts: { type: number }
+        level: { type: string }
+        message: { type: string }
+        span_id: { type: [string, "null"] }
+        fields: { type: object }
+    TraceDetail:
+      type: object
+      required: [trace_id, spans, logs]
+      properties:
+        trace_id: { type: string }
+        spans:
+          type: array
+          items: { $ref: "#/components/schemas/Span" }
+        logs:
+          type: array
+          items: { $ref: "#/components/schemas/LogRecord" }
+    AlertCreate:
+      type: object
+      required: [rule, severity, summary]
+      properties:
+        rule: { type: string }
+        severity: { type: string, enum: [info, warning, critical] }
+        summary: { type: string, maxLength: 300 }
+        details: { type: object }
+    Alert:
+      type: object
+      required: [id, rule, status, severity, summary, details, fired_at, resolved_at]
+      properties:
+        id: { type: integer }
+        rule: { type: string }
+        status: { type: string, enum: [firing, resolved] }
+        severity: { type: string }
+        summary: { type: string }
+        details: { type: object }
+        fired_at: { type: string }
+        resolved_at: { type: [string, "null"] }
+    IncidentCreate:
+      type: object
+      required: [status, summary]
+      properties:
+        alert_id: { type: [integer, "null"] }
+        status: { type: string, enum: [resolved, escalated, dry_run] }
+        summary: { type: string, maxLength: 1000 }
+        actions:
+          type: array
+          items: { type: object }
+        trace_ids:
+          type: array
+          items: { type: string }
+    Incident:
+      type: object
+      required: [id, alert_id, status, summary, actions, trace_ids, created_at]
+      properties:
+        id: { type: integer }
+        alert_id: { type: [integer, "null"] }
+        status: { type: string }
+        summary: { type: string }
+        actions:
+          type: array
+          items: { type: object }
+        trace_ids:
+          type: array
+          items: { type: string }
+        created_at: { type: string }
+    ConfigChange:
+      type: object
+      required: [id, key, value, changed_at, changed_by, verified_good]
+      properties:
+        id: { type: integer }
+        key: { type: string }
+        value: { type: string }
+        changed_at: { type: string }
+        changed_by: { type: string }
+        verified_good: { type: boolean }
+    ConfigState:
+      type: object
+      required: [values, verified, history]
+      properties:
+        values:
+          type: object
+          additionalProperties: { type: string }
+        verified:
+          type: object
+          additionalProperties: { type: boolean }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/ConfigChange" }
+    ConfigSet:
+      type: object
+      required: [value]
+      properties:
+        value: { type: string, maxLength: 64 }
+        skip_validation:
+          type: boolean
+          description: Fault-injection hook for incident drills. Rejected with 403 when ENABLE_FAULT_INJECTION is off (production default).
+        verified: { type: boolean }
+    ConfigChanged:
+      type: object
+      required: [key, value, previous, verified]
+      properties:
+        key: { type: string }
+        value: { type: string }
+        previous: { type: string }
+        verified: { type: boolean }

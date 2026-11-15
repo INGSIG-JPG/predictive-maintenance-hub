@@ -1,0 +1,5 @@
+-r backend/requirements.txt
+-r oncall/requirements.txt
+pytest>=8.0
+jsonschema>=4.20
+PyYAML>=6.0

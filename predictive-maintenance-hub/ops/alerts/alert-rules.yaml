@@ -1,0 +1,29 @@
+# Alert rules evaluated by `python -m oncall.alerter`.
+# They are written in terms of USER IMPACT on the key journey (recording a sensor reading),
+# never CPU or memory. Thresholds are evaluated against /api/telemetry/summary.
+rules:
+  - name: ingest_reading_error_rate
+    description: Users cannot record readings or receive risk scores.
+    journey: ingest_reading
+    metric: error_ratio        # share of 5xx responses
+    operator: ">"
+    threshold: 0.05            # more than 5 percent of requests fail
+    window_seconds: 120
+    min_requests: 5            # ignore windows with too little traffic to judge
+    severity: critical
+    summary: "Recording sensor readings is failing for users"
+    runbook: docs/runbooks/bad-config-rollback.md
+    responder: auto            # the on-call agent is woken for this rule
+
+  - name: ingest_reading_latency_p95
+    description: Recording a reading is slow for users.
+    journey: ingest_reading
+    metric: p95_ms
+    operator: ">"
+    threshold: 1500
+    window_seconds: 180
+    min_requests: 10
+    severity: warning
+    summary: "Recording sensor readings is slow (p95 above 1.5 s)"
+    runbook: docs/runbooks/high-latency.md
+    responder: escalate        # no safe automated fix: the agent only records an escalation

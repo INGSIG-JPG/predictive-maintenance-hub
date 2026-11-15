@@ -1,0 +1,52 @@
+:root {
+  --bg: #f6f7f9; --card: #fff; --ink: #1c2430; --dim: #6b7685; --line: #dfe3e9; --accent: #1f5fbf;
+  --low: #2e7d32; --medium: #b58900; --high: #e65100; --critical: #c62828; --unknown: #78909c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+header { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; background: #fff; border-bottom: 1px solid var(--line); flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 10px; }
+h3 { font-size: 14px; margin: 14px 0 6px; color: var(--dim); }
+nav a { margin-left: 16px; color: var(--accent); text-decoration: none; }
+nav a[aria-current="page"] { font-weight: 600; text-decoration: underline; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; display: grid; gap: 18px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-x: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.tile-bad { border-color: var(--critical); background: #fdecea; }
+.tile-value { font-size: 22px; font-weight: 600; }
+.tile-label, .dim { color: var(--dim); font-size: 13px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); }
+tbody tr[class="selected"], tbody tr:hover { background: #eef3fb; cursor: default; }
+#traces-body tr { cursor: pointer; }
+.empty { color: var(--dim); text-align: center; }
+form { display: grid; gap: 6px; }
+label { display: grid; gap: 3px; font-size: 13px; color: var(--dim); }
+input, select { font: inherit; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+button { font: inherit; padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; margin-top: 6px; }
+button.small { padding: 4px 8px; font-size: 12px; margin: 0 4px 0 0; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #9ec2ff; outline-offset: 1px; }
+.error { color: var(--critical); font-size: 12px; min-height: 0; }
+.message { padding: 8px 12px; border-radius: 6px; margin-top: 10px; border: 1px solid var(--line); background: #fff; }
+.message.ok { border-color: var(--low); background: #e8f5e9; }
+.message.warn { border-color: var(--high); background: #fff3e0; }
+.message.error { border-color: var(--critical); background: #fdecea; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #fff; background: var(--unknown); }
+.risk-low { background: var(--low); } .risk-medium { background: var(--medium); }
+.risk-high { background: var(--high); } .risk-critical { background: var(--critical); } .risk-unknown { background: var(--unknown); }
+.status-open { background: var(--high); } .status-in_progress { background: var(--accent); } .status-done { background: var(--low); }
+ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.span-row { display: grid; grid-template-columns: 170px 1fr 80px; gap: 8px; align-items: center; padding: 3px 0; }
+.span-track { position: relative; height: 12px; background: #eef0f3; border-radius: 6px; }
+.span-bar { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 6px; min-width: 3px; }
+.span-bar.bad { background: var(--critical); }
+.span-error { grid-column: 1 / -1; color: var(--critical); font-size: 12px; }
+.span-ms { text-align: right; font-size: 12px; color: var(--dim); }
+.log { padding: 2px 0; font-size: 13px; border-bottom: 1px dashed var(--line); }
+.log-error { color: var(--critical); } .log-warning { color: var(--high); }
+@media (max-width: 600px) { .span-row { grid-template-columns: 110px 1fr 60px; } header { padding: 12px 16px; } }

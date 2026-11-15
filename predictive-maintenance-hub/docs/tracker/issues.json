@@ -1,0 +1,129 @@
+[
+  {
+    "title": "Register machines (FR-1)",
+    "labels": [
+      "backend",
+      "feature",
+      "agent:backend"
+    ],
+    "body": "**User story:** As a planner I register equipment so readings can be attached to it.\n\n**Owner agent:** backend\n**Spec:** FR-1; openapi: /api/machines\n\n## Acceptance criteria\n- [ ] Given a unique code, name and type, when I POST /api/machines then I get 201 and it appears in GET /api/machines\n- [ ] Given a duplicate code then 409\n- [ ] Given an invalid code, type or empty name then 422 with the failing field\n\n## Verification\nbackend/tests/integration/test_journey_and_persistence.py\n"
+  },
+  {
+    "title": "Record and score a sensor reading (FR-2, FR-3)",
+    "labels": [
+      "backend",
+      "feature",
+      "agent:backend"
+    ],
+    "body": "**User story:** As an operator I record readings and see a risk level immediately.\n\n**Owner agent:** backend\n**Spec:** FR-2, FR-3; openapi: /api/readings\n\n## Acceptance criteria\n- [ ] Given a registered machine, when I POST a valid reading then 201 with risk score 0-100, level and X-Trace-Id header\n- [ ] Unknown machine gives 404; invalid or out-of-range values give 422\n- [ ] v1 boundaries 40/70/85 are covered; v2 adds an outlier bonus and never exceeds 100\n\n## Verification\nbackend/tests/unit/test_risk.py, test_validation.py, integration tests\n"
+  },
+  {
+    "title": "Automatic work orders without duplicates (FR-4)",
+    "labels": [
+      "backend",
+      "feature",
+      "agent:backend"
+    ],
+    "body": "**User story:** As a planner I want a work order when a machine degrades.\n\n**Owner agent:** backend\n**Spec:** FR-4\n\n## Acceptance criteria\n- [ ] high -> P2, critical -> P1 work order, status open\n- [ ] A machine with a non-done work order does not get a duplicate\n- [ ] auto_work_orders=false disables creation\n\n## Verification\ntest_critical_reading_opens_one_p1_work_order_and_dedupes, test_auto_work_orders_can_be_disabled\n"
+  },
+  {
+    "title": "Work-order workflow (FR-5)",
+    "labels": [
+      "backend",
+      "feature",
+      "agent:backend"
+    ],
+    "body": "**User story:** As a technician I progress and close work orders.\n\n**Owner agent:** backend\n**Spec:** FR-5; openapi: /api/work-orders\n\n## Acceptance criteria\n- [ ] open -> in_progress -> done; done is final (409)\n- [ ] Unknown status or fields give 422; unknown id gives 404\n- [ ] Assignee can be set\n\n## Verification\ntest_work_order_lifecycle_and_invalid_transitions\n"
+  },
+  {
+    "title": "Dashboard and persistence (FR-6, FR-7)",
+    "labels": [
+      "frontend",
+      "feature",
+      "agent:frontend"
+    ],
+    "body": "**User story:** As a planner I see fleet risk at a glance and my data survives restarts.\n\n**Owner agent:** frontend\n**Spec:** FR-6, FR-7\n\n## Acceptance criteria\n- [ ] Dashboard shows totals, per-level counts, open work orders, readings in 24 h and active model\n- [ ] Machines table shows latest risk; forms register machines and record readings with instant validation\n- [ ] Data persists across app instances (database, not memory)\n\n## Verification\ntest_data_persists_across_app_instances, frontend/tests\n"
+  },
+  {
+    "title": "OpenAPI contract and contract test (NFR-1)",
+    "labels": [
+      "architecture",
+      "testing",
+      "agent:architect"
+    ],
+    "body": "**User story:** As a team we want the contract to be the source of truth.\n\n**Owner agent:** architect\n**Spec:** NFR-1\n\n## Acceptance criteria\n- [ ] Every route is in openapi.yaml and every documented route exists\n- [ ] Real responses (including error statuses) validate against the schemas\n\n## Verification\nbackend/tests/integration/test_openapi_contract.py\n"
+  },
+  {
+    "title": "Runtime config with history and rollback (FR-8)",
+    "labels": [
+      "backend",
+      "feature",
+      "agent:backend"
+    ],
+    "body": "**User story:** As an operator I change config safely and can undo it.\n\n**Owner agent:** backend\n**Spec:** FR-8, NFR-7\n\n## Acceptance criteria\n- [ ] Invalid values are rejected (422) unless fault injection is enabled\n- [ ] Every change is recorded with actor and verified flag\n- [ ] Rollback restores the latest verified-good value; 409 when none exists\n- [ ] Admin endpoints require a bearer token\n\n## Verification\ntest_admin_and_incident_primitives.py\n"
+  },
+  {
+    "title": "Full-stack tests with a single command (NFR-5)",
+    "labels": [
+      "testing",
+      "agent:qa"
+    ],
+    "body": "**User story:** As a reviewer I run all tests with one command.\n\n**Owner agent:** qa\n**Spec:** NFR-5\n\n## Acceptance criteria\n- [ ] make test runs unit, integration, on-call and frontend tests\n- [ ] Unit and integration are separated by pytest markers\n- [ ] Integration suite also runs on PostgreSQL in CI\n\n## Verification\nMakefile, pytest.ini, ci.yml\n"
+  },
+  {
+    "title": "Containerise the whole system (NFR-5)",
+    "labels": [
+      "devops",
+      "agent:devops"
+    ],
+    "body": "**User story:** As a developer I start everything with one command.\n\n**Owner agent:** devops\n**Spec:** NFR-5\n\n## Acceptance criteria\n- [ ] docker compose up --build starts db, app, alerter, responder\n- [ ] App waits for a healthy database\n- [ ] Smoke test passes against the compose stack\n\n## Verification\nDockerfile, docker-compose.yml, ci.yml containers job\n"
+  },
+  {
+    "title": "CI on every PR; CD to dev; manual prod deploy (NFR-6)",
+    "labels": [
+      "devops",
+      "agent:devops"
+    ],
+    "body": "**User story:** As a team we ship safely.\n\n**Owner agent:** devops\n**Spec:** NFR-6\n\n## Acceptance criteria\n- [ ] CI runs on every pull request\n- [ ] Merge to main deploys to dev automatically after CI and smoke-tests it\n- [ ] Production deploy is manual, needs approval and can deploy an older ref (rollback)\n\n## Verification\n.github/workflows\n"
+  },
+  {
+    "title": "Deploy to a public URL",
+    "labels": [
+      "devops",
+      "agent:devops"
+    ],
+    "body": "**User story:** As a reviewer I can open the running app.\n\n**Owner agent:** devops\n**Spec:** NFR-6\n\n## Acceptance criteria\n- [ ] Dev environment is reachable at a public URL listed in the README\n- [ ] scripts/smoke_test.py passes against it\n\n## Verification\ndocs/deployment.md\n"
+  },
+  {
+    "title": "Instrument the key journey (NFR-2)",
+    "labels": [
+      "observability",
+      "agent:observability"
+    ],
+    "body": "**User story:** As an engineer I can follow one reading through the system.\n\n**Owner agent:** observability\n**Spec:** NFR-2\n\n## Acceptance criteria\n- [ ] Metrics, spans and structured logs share one trace ID\n- [ ] Responses carry X-Trace-Id and W3C traceparent; incoming traceparent is continued\n- [ ] Signals are stored and viewable at /observability and /metrics\n- [ ] No credentials or customer data are stored in telemetry\n\n## Verification\ntest_observability.py, test_telemetry.py\n"
+  },
+  {
+    "title": "Alert on user impact (NFR-3)",
+    "labels": [
+      "observability",
+      "agent:observability"
+    ],
+    "body": "**User story:** As on-call I am paged on user impact, not CPU.\n\n**Owner agent:** observability\n**Spec:** NFR-3\n\n## Acceptance criteria\n- [ ] Alert rules use the journey error ratio and p95 latency\n- [ ] Low traffic does not page; a firing alert is not duplicated\n\n## Verification\nops/alerts/alert-rules.yaml, oncall/tests\n"
+  },
+  {
+    "title": "On-call agent fixes a bad config push (NFR-4)",
+    "labels": [
+      "oncall",
+      "agent:oncall"
+    ],
+    "body": "**User story:** As on-call I want the system to recover without waking me.\n\n**Owner agent:** oncall\n**Spec:** NFR-4\n\n## Acceptance criteria\n- [ ] On alert the agent diagnoses from traces and config history\n- [ ] It rolls back to the last verified-good config, verifies with 3 canary readings, resolves the alert and records an incident\n- [ ] Unknown causes and latency alerts are escalated without any write\n- [ ] Only config_rollback is permitted; dry-run mode exists\n\n## Verification\noncall/tests/test_oncall_e2e.py, scripts/simulate_incident.py\n"
+  },
+  {
+    "title": "Security hardening (NFR-7)",
+    "labels": [
+      "security",
+      "agent:devops"
+    ],
+    "body": "**User story:** As an owner I do not ship insecure defaults.\n\n**Owner agent:** devops\n**Spec:** NFR-7\n\n## Acceptance criteria\n- [ ] Production refuses to start with the default admin token\n- [ ] Fault injection is off by default in production (403)\n- [ ] UI uses textContent only; SQL is parameterised\n\n## Verification\ntest_db.py, test_admin_and_incident_primitives.py\n"
+  }
+]

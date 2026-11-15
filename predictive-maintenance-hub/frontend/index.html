@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Predictive Maintenance Hub</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Predictive Maintenance Hub</h1>
+    <nav><a href="/" aria-current="page">Dashboard</a><a href="/observability">Observability</a></nav>
+  </header>
+  <main>
+    <div id="global-message" class="message" hidden role="status"></div>
+    <section aria-labelledby="h-summary"><h2 id="h-summary">Fleet overview</h2><div id="summary" class="tiles"></div></section>
+
+    <section aria-labelledby="h-machines">
+      <h2 id="h-machines">Machines</h2>
+      <table><thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Latest risk</th><th>Last reading</th></tr></thead><tbody id="machines-body"></tbody></table>
+    </section>
+
+    <div class="grid">
+      <section aria-labelledby="h-reading">
+        <h2 id="h-reading">Record a sensor reading</h2>
+        <form id="reading-form" novalidate>
+          <label>Machine <select name="machine_code" id="reading-machine"></select></label><span class="error" data-error-for="machine_code"></span>
+          <label>Temperature (C) <input name="temperature_c" inputmode="decimal" value="45"></label><span class="error" data-error-for="temperature_c"></span>
+          <label>Vibration (mm/s) <input name="vibration_mm_s" inputmode="decimal" value="1.2"></label><span class="error" data-error-for="vibration_mm_s"></span>
+          <label>Pressure (bar) <input name="pressure_bar" inputmode="decimal" value="6"></label><span class="error" data-error-for="pressure_bar"></span>
+          <button type="submit">Submit reading</button>
+        </form>
+        <div id="reading-message" class="message" hidden role="status"></div>
+      </section>
+
+      <section aria-labelledby="h-machine">
+        <h2 id="h-machine">Register a machine</h2>
+        <form id="machine-form" novalidate>
+          <label>Code <input name="code" placeholder="PUMP-001"></label><span class="error" data-error-for="code"></span>
+          <label>Name <input name="name" placeholder="Cooling water pump"></label><span class="error" data-error-for="name"></span>
+          <label>Type
+            <select name="machine_type">
+              <option>pump</option><option>motor</option><option>compressor</option><option>fan</option><option>conveyor</option><option>other</option>
+            </select>
+          </label>
+          <label>Location <input name="location" placeholder="Plant A"></label>
+          <button type="submit">Register</button>
+        </form>
+        <div id="machine-message" class="message" hidden role="status"></div>
+      </section>
+    </div>
+
+    <section aria-labelledby="h-wo">
+      <h2 id="h-wo">Work orders</h2>
+      <table><thead><tr><th>ID</th><th>Title</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead><tbody id="wo-body"></tbody></table>
+    </section>
+  </main>
+  <script type="module" src="/static/src/main.js"></script>
+</body>
+</html>

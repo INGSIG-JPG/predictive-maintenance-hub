@@ -1,0 +1,29 @@
+# Render Blueprint: dev + production, each with its own PostgreSQL database.
+# Deploys are triggered by the GitHub workflows through deploy hooks (autoDeploy is off on purpose).
+services:
+  - type: web
+    name: pdm-hub-dev
+    runtime: docker
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /ready
+    envVars:
+      - { key: APP_ENV, value: staging }
+      - { key: SEED_DEMO_DATA, value: "true" }
+      - { key: ENABLE_FAULT_INJECTION, value: "true" }
+      - { key: ADMIN_TOKEN, generateValue: true }
+      - { key: DATABASE_URL, fromDatabase: { name: pdm-dev-db, property: connectionString } }
+  - type: web
+    name: pdm-hub-prod
+    runtime: docker
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /ready
+    envVars:
+      - { key: APP_ENV, value: production }
+      - { key: ENABLE_FAULT_INJECTION, value: "false" }
+      - { key: ADMIN_TOKEN, generateValue: true }
+      - { key: DATABASE_URL, fromDatabase: { name: pdm-prod-db, property: connectionString } }
+databases:
+  - { name: pdm-dev-db, plan: free }
+  - { name: pdm-prod-db, plan: free }
